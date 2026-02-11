@@ -1,6 +1,4 @@
 
-
-```markdown
 # runec – Run with EtherCAT Capabilities
 
 A minimal setuid helper that grants network capabilities (`CAP_NET_RAW`, `CAP_NET_ADMIN`) to unprivileged processes, enabling userspace EtherCAT master stacks and other raw-socket applications to run without root.
@@ -365,4 +363,3 @@ This is intentionally a tiny project. If you find a bug or have a security conce
 - Portability improvements
 
 Please keep the codebase minimal and auditable — the entire point is that this is small enough to trust.
-```

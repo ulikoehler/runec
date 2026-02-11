@@ -1,9 +1,10 @@
 /*
- * runec – setuid helper that grants network capabilities to unprivileged processes
+ * runec – setuid helper that grants selected Linux capabilities to unprivileged processes
  *
  * Compile-time options:
  *   -DENABLE_CAP_NET_RAW=1     (default: 1)  Grant CAP_NET_RAW
  *   -DENABLE_CAP_NET_ADMIN=1   (default: 1)  Grant CAP_NET_ADMIN
+ *   -DENABLE_CAP_SYS_NICE=1    (default: 1)  Grant CAP_SYS_NICE
  *   -DENABLE_DEBUG_LOG=0       (default: 0)  Enable verbose logging
  *
  * Build:
@@ -13,8 +14,12 @@
  *
  * Install:
  *   sudo install -o root -g root -m 4755 runec /usr/local/bin/
- *   sudo setcap cap_net_raw,cap_net_admin+ep /usr/local/bin/runec  # optional
+ *   sudo setcap cap_net_raw,cap_net_admin,cap_sys_nice+ep /usr/local/bin/runec  # optional
  */
+
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,6 +42,10 @@
 #define ENABLE_CAP_NET_ADMIN 1
 #endif
 
+#ifndef ENABLE_CAP_SYS_NICE
+#define ENABLE_CAP_SYS_NICE 1
+#endif
+
 #ifndef ENABLE_DEBUG_LOG
 #define ENABLE_DEBUG_LOG 0
 #endif
@@ -48,6 +57,9 @@ static const cap_value_t REQUIRED_CAPS[] = {
 #endif
 #if ENABLE_CAP_NET_ADMIN
     CAP_NET_ADMIN,
+#endif
+#if ENABLE_CAP_SYS_NICE
+    CAP_SYS_NICE,
 #endif
 };
 static const int NUM_REQUIRED_CAPS = sizeof(REQUIRED_CAPS) / sizeof(REQUIRED_CAPS[0]);
@@ -124,6 +136,7 @@ static const char* cap_name(cap_value_t cap)
     switch (cap) {
         case CAP_NET_RAW: return "CAP_NET_RAW";
         case CAP_NET_ADMIN: return "CAP_NET_ADMIN";
+        case CAP_SYS_NICE: return "CAP_SYS_NICE";
         default: return "CAP_UNKNOWN";
     }
 }
@@ -133,7 +146,7 @@ static void print_usage(void)
     fprintf(stderr,
         "Usage: runec <executable> [args...]\n"
         "\n"
-        "Runs <executable> with elevated network capabilities.\n"
+        "Runs <executable> with elevated capabilities.\n"
         "\n"
         "Capabilities granted:\n");
     
@@ -154,8 +167,8 @@ static void print_usage(void)
 int main(int argc, char *argv[])
 {
     /* Compile-time sanity check */
-#if !ENABLE_CAP_NET_RAW && !ENABLE_CAP_NET_ADMIN
-    #error "At least one capability must be enabled (ENABLE_CAP_NET_RAW or ENABLE_CAP_NET_ADMIN)"
+#if !ENABLE_CAP_NET_RAW && !ENABLE_CAP_NET_ADMIN && !ENABLE_CAP_SYS_NICE
+    #error "At least one capability must be enabled (ENABLE_CAP_NET_RAW, ENABLE_CAP_NET_ADMIN, or ENABLE_CAP_SYS_NICE)"
 #endif
 
     /* ---- Argument check ---- */

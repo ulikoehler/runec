@@ -1,7 +1,7 @@
 
 # runec – Run with EtherCAT Capabilities
 
-A minimal setuid helper that grants network capabilities (`CAP_NET_RAW`, `CAP_NET_ADMIN`) to unprivileged processes, enabling userspace EtherCAT master stacks and other raw-socket applications to run without root.
+A minimal setuid helper that grants the capabilities typically needed by userspace EtherCAT master stacks (`CAP_NET_RAW`, `CAP_NET_ADMIN`, `CAP_SYS_NICE`) to unprivileged processes, enabling raw-socket + interface configuration + real-time scheduling without root.
 
 ## The Problem
 
@@ -25,10 +25,12 @@ None of these options are great for a development workflow where you're recompil
 
 1. Starts with elevated privileges (setuid-root)
 2. Immediately drops back to your real user identity
-3. Retains **only** `CAP_NET_RAW` and `CAP_NET_ADMIN` through the Linux ambient capability mechanism
-4. Executes your target program, which inherits just those two capabilities
+3. Retains **only** `CAP_NET_RAW`, `CAP_NET_ADMIN`, and `CAP_SYS_NICE` through the Linux ambient capability mechanism
+4. Executes your target program, which inherits just those capabilities
 
 The result: your application runs as your normal user, with your normal file permissions, but with the ability to open raw sockets and configure interfaces.
+
+`CAP_SYS_NICE` is included because many control applications also want to raise thread priority or use real-time scheduling classes (e.g. `SCHED_FIFO`).
 
 ```
 $ whoami
@@ -75,16 +77,18 @@ There is also a fourth set, **Ambient** (since kernel 4.3), which is the key to 
 │    → permitted set is preserved (KEEPCAPS)          │
 ├────────────────────────────────────────────────────┤
 │ 4. cap_set_proc()                                  │
-│    → restore CAP_NET_RAW + CAP_NET_ADMIN into      │
+│    → restore CAP_NET_RAW + CAP_NET_ADMIN +         │
+│      CAP_SYS_NICE into                             │
 │      permitted, effective, and inheritable sets     │
 ├────────────────────────────────────────────────────┤
 │ 5. prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE,...) │
-│    → set both caps in the ambient set               │
+│    → set caps in the ambient set                    │
 │    → this is what survives across execve()          │
 ├────────────────────────────────────────────────────┤
 │ 6. execv(target, args)                             │
 │    → target runs as your user                       │
-│    → target has CAP_NET_RAW + CAP_NET_ADMIN         │
+│    → target has CAP_NET_RAW + CAP_NET_ADMIN +       │
+│      CAP_SYS_NICE                                   │
 │    → no other elevated privileges                   │
 └────────────────────────────────────────────────────┘
 ```
@@ -142,6 +146,7 @@ make ENABLE_CAP_NET_ADMIN=0
 |---|---|---|
 | `ENABLE_CAP_NET_RAW` | `1` | Grant `CAP_NET_RAW` (raw sockets) |
 | `ENABLE_CAP_NET_ADMIN` | `1` | Grant `CAP_NET_ADMIN` (promiscuous mode, interface config) |
+| `ENABLE_CAP_SYS_NICE` | `1` | Grant `CAP_SYS_NICE` (raise priority / real-time scheduling) |
 | `ENABLE_DEBUG_LOG` | `0` | Print detailed capability state at each step |
 | `PREFIX` | `/usr/local` | Installation prefix |
 
@@ -163,7 +168,7 @@ This performs the following:
 
 1. Compiles `runec` with your chosen options
 2. Installs the binary to `/usr/local/bin/runec` owned by root with mode `4755` (setuid)
-3. Optionally sets file capabilities as a fallback (`cap_net_raw,cap_net_admin+ep`)
+3. Optionally sets file capabilities as a fallback (`cap_net_raw,cap_net_admin,cap_sys_nice+ep`)
 4. Verifies the installation
 
 To install to a different location:

@@ -248,7 +248,7 @@ run: build/bin/my_app
 
 ### What runec Does
 
-- Grants exactly two capabilities: `CAP_NET_RAW` and `CAP_NET_ADMIN` (configurable at compile time)
+- Grants exactly the configured capabilities (default: `CAP_NET_RAW`, `CAP_NET_ADMIN`, `CAP_SYS_NICE`)
 - Drops all other root privileges immediately
 - Runs the target process as your normal user (your UID, your GID)
 - Validates that the target is a regular file and is executable before launching
@@ -257,7 +257,7 @@ run: build/bin/my_app
 ### What runec Does NOT Do
 
 - Does not grant root access
-- Does not keep any capabilities beyond the two configured ones
+- Does not keep any capabilities beyond the configured ones
 - Does not modify any system configuration
 - Does not bypass file permissions (the target runs as your user)
 - Does not allow specifying arbitrary capabilities (they are fixed at compile time)
@@ -298,7 +298,7 @@ ls -l /usr/local/bin/runec
 # Should show: -rwsr-xr-x 1 root root ... runec
 
 getcap /usr/local/bin/runec
-# Should show: /usr/local/bin/runec cap_net_admin,cap_net_raw=ep
+# Should show: /usr/local/bin/runec cap_net_admin,cap_net_raw,cap_sys_nice=ep
 ```
 
 Reinstall if needed:
@@ -328,8 +328,8 @@ runec ./my_app eth0
 Example debug output:
 ```
 [runec] Starting: euid=0, ruid=1000, egid=0, rgid=1000
-[runec] After cap_set_proc: = cap_net_admin,cap_net_raw+eip
-[runec] Final caps before exec: = cap_net_admin,cap_net_raw+eip
+[runec] After cap_set_proc: = cap_net_admin,cap_net_raw,cap_sys_nice+eip
+[runec] Final caps before exec: = cap_net_admin,cap_net_raw,cap_sys_nice+eip
 [runec] Launching: ./my_app
 ```
 

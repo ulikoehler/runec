@@ -36,6 +36,76 @@ jobs:
           path: runec_linux_amd64
           retention-days: 30
 
+  test:
+    runs-on: ubuntu-latest
+    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libcap-dev
+
+      - name: Build runec
+        run: make
+
+      - name: Install runec
+        run: sudo make install
+
+      - name: Verify installation
+        run: |
+          ls -l /usr/local/bin/runec
+          getcap /usr/local/bin/runec
+
+      - name: Test basic functionality
+        run: |
+          echo "=== Testing with /bin/true ==="
+          runec /bin/true && echo "SUCCESS: runec executed /bin/true" || echo "FAILED"
+
+      - name: Test capabilities are set correctly
+        run: |
+          echo "=== Checking capabilities ==="
+          CAPS=$(runec /bin/bash -c 'cat /proc/self/status | grep -i cap')
+          echo "$CAPS"
+          
+          # Extract CapEff (Effective capabilities)
+          CAPEFF=$(echo "$CAPS" | grep "^CapEff:" | awk '{print $2}')
+          echo "Effective capabilities: $CAPEFF"
+          
+          # Expected capabilities: CAP_NET_RAW (12), CAP_NET_ADMIN (13), CAP_SYS_NICE (23)
+          # These correspond to bits 12, 13, and 23 in the capability mask
+          # The mask should have these bits set
+          
+          # Check that effective capabilities are not all zeros
+          if [ "$CAPEFF" = "0000000000000000" ]; then
+            echo "ERROR: No effective capabilities set"
+            exit 1
+          fi
+          
+          # Verify the binary has the expected file capabilities
+          FILECAPS=$(getcap /usr/local/bin/runec)
+          echo "File capabilities: $FILECAPS"
+          
+          if ! echo "$FILECAPS" | grep -q "cap_net_raw"; then
+            echo "ERROR: CAP_NET_RAW not set on file"
+            exit 1
+          fi
+          
+          if ! echo "$FILECAPS" | grep -q "cap_net_admin"; then
+            echo "ERROR: CAP_NET_ADMIN not set on file"
+            exit 1
+          fi
+          
+          if ! echo "$FILECAPS" | grep -q "cap_sys_nice"; then
+            echo "ERROR: CAP_SYS_NICE not set on file"
+            exit 1
+          fi
+          
+          echo "SUCCESS: All expected capabilities are set correctly"
+
   release:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')

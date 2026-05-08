@@ -356,7 +356,7 @@ runec/
 
 ## License
 
-[MIT](LICENSE)
+[CC0 1.0 Universal](LICENSE)
 
 ## Contributing
 
